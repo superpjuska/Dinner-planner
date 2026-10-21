@@ -107,6 +107,7 @@ details .recipe{border:0;margin:0;padding:0 16px 16px;border-top:1px solid var(-
 .date-picker-grid button{border:0;background:none;border-radius:8px;padding:7px 2px}
 .date-picker-grid button:hover,.date-picker-grid button.sel{background:var(--soft)}
 .date-picker-grid button.today{outline:1px solid var(--acc)}
+.lang button.sync{padding:5px 8px}.lang button.sync.off{opacity:.55}
 </style>
 </head>
 <body>
@@ -178,7 +179,7 @@ function suggest(day){
   pool.sort(()=>Math.random()-.5);
   const ids=pool.slice(0,keep?2:3).map(d=>d.id);
   S.sug[day]=keep?[keep,...ids]:ids;
-  save();
+  save();sPut("sug/"+day,S.sug[day]);
 }
 function recipe(d){
   const I=d.i.split("|"),St=d.s.split("|");
@@ -291,7 +292,7 @@ function cal(){
 }
 function plan(){
   const d=S.day;
-  if(!A().length)return `<p class="empty">${U().noDin}</p>`;if(!S.sug[d])suggest(d);
+  if(!A().length)return `<p class="empty">${U().noDin}</p>`;if(!S.sug[d]){if(SY.code&&!SY.tried)return `<p class="empty">${U().syncLoad}</p>`;suggest(d);}
   const picked=S.pick[d]?get(S.pick[d]):null;
   let h=cal()+`<div class="shop-action"><button class="ghost" data-shopping aria-expanded="${S.shopPicker}" aria-controls="shopping-range">${S.shopping?U().changeShopping:U().addShopping}</button><button class="ghost" data-shop-show aria-expanded="${S.shopVisible}" aria-controls="shopping-list">${S.shopVisible?U().hideShopping:U().showShopping}</button></div>${S.shopPicker?`<div class="shop-form" id="shopping-range"><div class="shop-date-field"><label for="shop-from">${U().from}</label><div class="shop-date"><input type="text" id="shop-from" inputmode="numeric" placeholder="DD/MM/YYYY" aria-label="${U().from} (DD/MM/YYYY)" value="${S.shopDraftFrom}"><button type="button" class="ghost" data-shop-calendar="from" aria-label="${U().chooseDate}: ${U().from}">▦</button></div>${S.shopActive==="from"?shopCalendar():""}</div><div class="shop-date-field"><label for="shop-to">${U().to}</label><div class="shop-date"><input type="text" id="shop-to" inputmode="numeric" placeholder="DD/MM/YYYY" aria-label="${U().to} (DD/MM/YYYY)" value="${S.shopDraftTo}"><button type="button" class="ghost" data-shop-calendar="to" aria-label="${U().chooseDate}: ${U().to}">▦</button></div>${S.shopActive==="to"?shopCalendar():""}</div><button class="ghost" data-shop-create>${U().makeShopping}</button></div><p class="err" id="shop-err" role="alert"></p>`:""}${shoppingList()}
   <div class="head"><div><h2>${title(d)}</h2><p class="sub">${picked?U().set:U().choose}</p></div><button class="ghost" data-shuffle>${U().shuffle}</button></div>
@@ -314,7 +315,7 @@ function add(){
   if(!n||!(t>0)||!i.length||!s.length){document.getElementById("f-err").textContent=U().ferr;return false}
   const id=Date.now();
   C.push({id,e:esc(v("f-e"))||"🍽️",n,t,i:i.join("|"),s:s.join("|"),c:1});
-  S.added=id;saveC();return true;
+  S.added=id;saveC();sPut("dinners/"+id,C[C.length-1]);return true;
 }
 function all(){
   return A().map(T).sort((a,b)=>a.t-b.t).map(d=>`<details${d.id===S.added?" open":""}><summary><span style="font-size:26px">${d.e}</span>${d.n}<span class="tm">${d.t} ${U().min}</span></summary>${recipe(d)}<p style="padding:0 16px 14px;margin:0"><button class="ghost" data-del="${d.id}">${U().del}</button></p></details>`).join("")+(H.length?`<button class="ghost" data-restore style="margin-top:8px">${U().restore(H.length)}</button>`:"");
@@ -325,14 +326,14 @@ document.addEventListener("change",e=>{
   if(!s.matches||!s.matches("select[data-other]")||!s.value)return;
   const id=+s.value,d=S.day;
   S.pick[d]=id;S.sug[d]=[id,...(S.sug[d]||[]).filter(x=>x!==id).slice(0,2)];
-  save();render();
+  save();sPut("pick/"+d,id);sPut("sug/"+d,S.sug[d]);render();
 });
 document.addEventListener("input",e=>{
   if(e.target.id==="shop-from")S.shopDraftFrom=e.target.value;
   else if(e.target.id==="shop-to")S.shopDraftTo=e.target.value;
 });
 function render(){DAYS=U().days;FULL=U().full;document.documentElement.lang=S.lang==="no"?"nb-NO":"en-GB";document.title=U().title;
-  document.getElementById("app").innerHTML=`<div class="bar"><h1>${U().title}</h1><div class="lang" role="group" aria-label="Language"><button data-lang="en" class="${S.lang==="en"?"on":""}">EN</button><button data-lang="no" class="${S.lang==="no"?"on":""}">NO</button></div></div><div class="tabs"><button data-tab="plan" class="${S.tab==="plan"?"on":""}">${U().plan}</button><button data-tab="all" class="${S.tab==="all"?"on":""}">${U().all} (${A().length})</button><button data-tab="add" class="${S.tab==="add"?"on":""}">${U().add}</button></div>`+(S.tab==="plan"?plan():S.tab==="add"?form():all());
+  document.getElementById("app").innerHTML=`<div class="bar"><h1>${U().title}</h1><div class="lang" role="group" aria-label="Language">${FBON?`<button class="sync${SY.code?"":" off"}" data-sync aria-label="${U().syncTip}">${sLabel()}</button>`:""}<button data-lang="en" class="${S.lang==="en"?"on":""}">EN</button><button data-lang="no" class="${S.lang==="no"?"on":""}">NO</button></div></div><div class="tabs"><button data-tab="plan" class="${S.tab==="plan"?"on":""}">${U().plan}</button><button data-tab="all" class="${S.tab==="all"?"on":""}">${U().all} (${A().length})</button><button data-tab="add" class="${S.tab==="add"?"on":""}">${U().add}</button></div>`+(S.tab==="plan"?plan():S.tab==="add"?form():all());
 }
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -340,12 +341,12 @@ document.addEventListener("click",e=>{
   if(q("tab"))S.tab=b.dataset.tab;
   else if(q("lang")){S.lang=b.dataset.lang;save();}
   else if(q("save")){if(!add())return;S.tab="all";}
-  else if(q("restore")){H=[];saveH();S.sug={};}
+  else if(q("restore")){H=[];saveH();S.sug={};sPut("hidden",null);sPut("sug",null);}
   else if(q("del")){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent=U().sure;return}
-    const id=+b.dataset.del;if(C.some(d=>d.id===id)){C=C.filter(d=>d.id!==id);saveC()}else{H.push(id);saveH()}
-    for(const k in S.pick)if(S.pick[k]===id&&(k>=key(new Date())||!ALL().some(d=>d.id===id)))delete S.pick[k];
-    S.sug={};save();
+    const id=+b.dataset.del;if(C.some(d=>d.id===id)){C=C.filter(d=>d.id!==id);saveC();sPut("dinners/"+id,null)}else{H.push(id);saveH();sPut("hidden/h"+id,true)}
+    for(const k in S.pick)if(S.pick[k]===id&&(k>=key(new Date())||!ALL().some(d=>d.id===id))){delete S.pick[k];sPut("pick/"+k,null)}
+    S.sug={};sPut("sug",null);save();
   }
   else if(q("day")){S.day=b.dataset.day;S.view=S.day.slice(0,7)}
   else if(q("shopping")){
@@ -378,12 +379,95 @@ document.addEventListener("click",e=>{
   else if(q("mv")){const [y,m]=S.view.split("-").map(Number);S.view=key(new Date(y,m-1+ +b.dataset.mv,1)).slice(0,7)}
   else if(q("today")){S.day=key(new Date());S.view=S.day.slice(0,7)}
   else if(q("shuffle"))suggest(S.day);
-  else if(q("pick")){S.pick[S.day]=+b.dataset.pick;save();}
-  else if(q("clear")){delete S.pick[S.day];save();}
+  else if(q("pick")){S.pick[S.day]=+b.dataset.pick;save();sPut("pick/"+S.day,S.pick[S.day]);}
+  else if(q("clear")){delete S.pick[S.day];save();sPut("pick/"+S.day,null);}
+  else if(q("sync")){sConnect();return}
   else return;
   render();
 });
+/* ===== shared online storage: Firebase Realtime Database via REST ===== */
+const FB_URL="https://middag-planlegger-default-rtdb.europe-west1.firebasedatabase.app/"; /* <- paste your database URL here */
+const FBON=!/YOUR-PROJECT/.test(FB_URL);
+Object.assign(UI.en,{syncAsk:"Family code - use the same code on every device (letters/numbers, at least 6)",syncShort:"Use at least 6 letters or numbers.",syncOff:"Stop sharing on this device? Your dinners stay here.",syncLoad:"Loading shared plan...",syncTip:"Sync"});
+Object.assign(UI.no,{syncAsk:"Familiekode - bruk samme kode på alle enheter (bokstaver/tall, minst 6)",syncShort:"Bruk minst 6 bokstaver eller tall.",syncOff:"Slutte å dele på denne enheten? Middagene dine blir liggende her.",syncLoad:"Henter felles plan...",syncTip:"Synkronisering"});
+const SK=KEY+"-sync";
+let SY={code:"",q:[],seeded:false,asked:false,tried:false,busy:false,again:false,dirty:false,state:"wait"};
+try{const x=JSON.parse(localStorage.getItem(SK)||"null");if(x){SY.code=x.code||"";SY.q=Array.isArray(x.q)?x.q:[];SY.seeded=!!x.seeded;SY.asked=!!x.asked}}catch(e){}
+const saveSY=()=>{try{localStorage.setItem(SK,JSON.stringify({code:SY.code,q:SY.q,seeded:SY.seeded,asked:SY.asked}))}catch(e){}};
+const sLabel=()=>!SY.code?"☁":SY.state==="ok"?"☁ ✓":SY.state==="err"?"☁ !":"☁ …";
+const sSafe=()=>{const a=document.activeElement;return S.tab!=="add"&&!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))};
+const sEnts=o=>Array.isArray(o)?o.map((v,i)=>[String(i),v]).filter(e=>e[1]!=null):Object.entries(o||{});
+const cj=o=>JSON.stringify(o,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort((a,b)=>a[0]<b[0]?-1:1)):v);
+const sF=(p,o={})=>fetch(FB_URL+"/h/"+SY.code+p+".json",{...o,signal:AbortSignal.timeout(5000)});
+/* queue a change (value null = delete); it is kept on the device until it reaches the server */
+const sPut=(p,v)=>{if(!SY.code||!FBON)return;SY.q=SY.q.filter(o=>o.p!==p);SY.q.push({p,v});saveSY();sNow()};
+async function sFlush(){
+  while(SY.q.length){
+    const o=SY.q[0];
+    const r=await sF("/"+o.p,o.v===null?{method:"DELETE"}:{method:"PUT",body:JSON.stringify(o.v)});
+    if(!r.ok)throw 0;
+    SY.q=SY.q.filter(x=>x!==o);saveSY();
+  }
+}
+function sApply(d){
+  const rd=Object.fromEntries(sEnts(d.dinners)),rh=Object.fromEntries(sEnts(d.hidden)),rp=Object.fromEntries(sEnts(d.pick)),rs=Object.fromEntries(sEnts(d.sug));
+  if(!SY.seeded){ /* first time on this code: upload what this device already has, keep what is online */
+    const up=(p,v)=>SY.q.push({p,v});
+    C.forEach(x=>{if(!(x.id in rd)){rd[x.id]=x;up("dinners/"+x.id,x)}});
+    H.forEach(id=>{if(!("h"+id in rh)){rh["h"+id]=true;up("hidden/h"+id,true)}});
+    for(const k in S.pick)if(!(k in rp)){rp[k]=S.pick[k];up("pick/"+k,S.pick[k])}
+    for(const k in S.sug)if(!(k in rs)){rs[k]=S.sug[k];up("sug/"+k,S.sug[k])}
+    SY.seeded=true;SY.again=true;saveSY();
+  }
+  const nc=Object.values(rd).filter(x=>x&&x.id).sort((a,b)=>a.id-b.id);
+  const ok=new Set([...D,...nc].map(x=>x.id));
+  const nh=Object.keys(rh).map(k=>+k.slice(1)).sort((a,b)=>a-b);
+  const np={},ns={};
+  for(const k in rp)if(ok.has(+rp[k]))np[k]=+rp[k];
+  for(const k in rs){const a=(Array.isArray(rs[k])?rs[k]:Object.values(rs[k]||{})).map(Number);if(a.length&&a.every(x=>ok.has(x)))ns[k]=a}
+  if(cj([nc,nh,np,ns])!==cj([[...C].sort((a,b)=>a.id-b.id),[...H].sort((a,b)=>a-b),S.pick,S.sug])){
+    C=nc;H=nh;S.pick=np;S.sug=ns;saveC();saveH();save();SY.dirty=true;
+  }
+}
+function sUi(){
+  const b=document.querySelector("[data-sync]");
+  if(b){b.textContent=sLabel();b.classList.toggle("off",!SY.code)}
+  if(SY.dirty&&sSafe()){SY.dirty=false;render()}
+}
+async function sNow(){
+  if(!SY.code||!FBON)return;
+  if(SY.busy){SY.again=true;return}
+  SY.busy=true;
+  try{
+    await sFlush();
+    const r=await sF("");
+    if(!r.ok)throw 0;
+    const d=await r.json()||{};
+    if(!SY.q.length)sApply(d); /* never overwrite changes that have not been sent yet */
+    SY.state="ok";
+  }catch(e){SY.state="err"}
+  SY.busy=false;
+  if(!SY.tried){SY.tried=true;SY.dirty=true}
+  sUi();
+  if(SY.again){SY.again=false;sNow()}
+}
+function sConnect(){
+  const v=prompt(U().syncAsk,SY.code);
+  if(v===null)return;
+  const c=v.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
+  if(!c){if(SY.code&&confirm(U().syncOff)){SY.code="";SY.q=[];SY.seeded=false;saveSY();sUi()}return}
+  if(c.length<6){alert(U().syncShort);return}
+  if(c!==SY.code){SY.code=c;SY.q=[];SY.seeded=false;SY.tried=false;SY.state="wait";saveSY()}
+  sUi();sNow();
+}
 render();
+if(FBON){
+  if(!SY.code&&!SY.asked)setTimeout(()=>{SY.asked=true;saveSY();sConnect()},600);
+  else sNow();
+  setInterval(()=>{if(!document.hidden){sNow();sUi()}},15000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden)sNow()});
+  addEventListener("online",sNow);
+}
 </script>
 <script>
 if("serviceWorker" in navigator && location.protocol.indexOf("http")===0){

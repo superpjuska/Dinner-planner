@@ -322,7 +322,7 @@ function all(){
 }
 document.addEventListener("change",e=>{
   const s=e.target;
-  if(s.matches&&s.matches("input[data-shop-check]")){S.shopChecked[s.dataset.shopCheck]=s.checked;return}
+  if(s.matches&&s.matches("input[data-shop-check]")){S.shopChecked[s.dataset.shopCheck]=s.checked;sPut("shop/checked/"+sk(s.dataset.shopCheck),s.checked?true:null);return}
   if(!s.matches||!s.matches("select[data-other]")||!s.value)return;
   const id=+s.value,d=S.day;
   S.pick[d]=id;S.sug[d]=[id,...(S.sug[d]||[]).filter(x=>x!==id).slice(0,2)];
@@ -374,7 +374,7 @@ document.addEventListener("click",e=>{
     S.shopDraftFrom=document.getElementById("shop-from").value;S.shopDraftTo=document.getElementById("shop-to").value;
     const from=parseDisplayDate(S.shopDraftFrom),to=parseDisplayDate(S.shopDraftTo);
     if(!from||!to||from>to){document.getElementById("shop-err").textContent=U().invalidRange;return}
-    S.shopFrom=from;S.shopTo=to;S.shopping=true;S.shopPicker=false;S.shopActive="";
+    S.shopFrom=from;S.shopTo=to;S.shopping=true;S.shopPicker=false;S.shopActive="";S.shopChecked={};sPut("shop",{from,to});
   }
   else if(q("mv")){const [y,m]=S.view.split("-").map(Number);S.view=key(new Date(y,m-1+ +b.dataset.mv,1)).slice(0,7)}
   else if(q("today")){S.day=key(new Date());S.view=S.day.slice(0,7)}
@@ -386,7 +386,7 @@ document.addEventListener("click",e=>{
   render();
 });
 /* ===== shared online storage: Firebase Realtime Database via REST ===== */
-const FB_URL="https://middag-planlegger-default-rtdb.europe-west1.firebasedatabase.app/"; /* <- paste your database URL here */
+const FB_URL="https://YOUR-PROJECT-default-rtdb.firebaseio.com"; /* <- paste your database URL here */
 const FBON=!/YOUR-PROJECT/.test(FB_URL);
 Object.assign(UI.en,{syncAsk:"Family code - use the same code on every device (letters/numbers, at least 6)",syncShort:"Use at least 6 letters or numbers.",syncOff:"Stop sharing on this device? Your dinners stay here.",syncLoad:"Loading shared plan...",syncTip:"Sync"});
 Object.assign(UI.no,{syncAsk:"Familiekode - bruk samme kode på alle enheter (bokstaver/tall, minst 6)",syncShort:"Bruk minst 6 bokstaver eller tall.",syncOff:"Slutte å dele på denne enheten? Middagene dine blir liggende her.",syncLoad:"Henter felles plan...",syncTip:"Synkronisering"});
@@ -395,9 +395,11 @@ let SY={code:"",q:[],seeded:false,asked:false,tried:false,busy:false,again:false
 try{const x=JSON.parse(localStorage.getItem(SK)||"null");if(x){SY.code=x.code||"";SY.q=Array.isArray(x.q)?x.q:[];SY.seeded=!!x.seeded;SY.asked=!!x.asked}}catch(e){}
 const saveSY=()=>{try{localStorage.setItem(SK,JSON.stringify({code:SY.code,q:SY.q,seeded:SY.seeded,asked:SY.asked}))}catch(e){}};
 const sLabel=()=>!SY.code?"☁":SY.state==="ok"?"☁ ✓":SY.state==="err"?"☁ !":"☁ …";
-const sSafe=()=>{const a=document.activeElement;return S.tab!=="add"&&!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName))};
+const sSafe=()=>{const a=document.activeElement;return S.tab!=="add"&&!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.type!=="checkbox")};
 const sEnts=o=>Array.isArray(o)?o.map((v,i)=>[String(i),v]).filter(e=>e[1]!=null):Object.entries(o||{});
 const cj=o=>JSON.stringify(o,(k,v)=>v&&typeof v==="object"&&!Array.isArray(v)?Object.fromEntries(Object.entries(v).sort((a,b)=>a[0]<b[0]?-1:1)):v);
+const sk=k=>decodeURIComponent(k).replace(/[^A-Za-z0-9_-]/g,c=>"~"+c.charCodeAt(0).toString(16).padStart(4,"0"));
+const sd=k=>encodeURIComponent(k.replace(/~([0-9a-f]{4})/g,(m,h)=>String.fromCharCode(parseInt(h,16))));
 const sF=(p,o={})=>fetch(FB_URL+"/h/"+SY.code+p+".json",{...o,signal:AbortSignal.timeout(5000)});
 /* queue a change (value null = delete); it is kept on the device until it reaches the server */
 const sPut=(p,v)=>{if(!SY.code||!FBON)return;SY.q=SY.q.filter(o=>o.p!==p);SY.q.push({p,v});saveSY();sNow()};
@@ -417,6 +419,7 @@ function sApply(d){
     H.forEach(id=>{if(!("h"+id in rh)){rh["h"+id]=true;up("hidden/h"+id,true)}});
     for(const k in S.pick)if(!(k in rp)){rp[k]=S.pick[k];up("pick/"+k,S.pick[k])}
     for(const k in S.sug)if(!(k in rs)){rs[k]=S.sug[k];up("sug/"+k,S.sug[k])}
+    if(S.shopping&&S.shopFrom&&!(d.shop&&d.shop.from)){d.shop={from:S.shopFrom,to:S.shopTo,checked:{}};up("shop",{from:S.shopFrom,to:S.shopTo});for(const k in S.shopChecked)if(S.shopChecked[k]){d.shop.checked[sk(k)]=true;up("shop/checked/"+sk(k),true)}}
     SY.seeded=true;SY.again=true;saveSY();
   }
   const nc=Object.values(rd).filter(x=>x&&x.id).sort((a,b)=>a.id-b.id);
@@ -428,6 +431,22 @@ function sApply(d){
   if(cj([nc,nh,np,ns])!==cj([[...C].sort((a,b)=>a.id-b.id),[...H].sort((a,b)=>a-b),S.pick,S.sug])){
     C=nc;H=nh;S.pick=np;S.sug=ns;saveC();saveH();save();SY.dirty=true;
   }
+  const sh=d.shop||{};
+  if(sh.from&&sh.to&&(S.shopFrom!==sh.from||S.shopTo!==sh.to||!S.shopping)){S.shopFrom=sh.from;S.shopTo=sh.to;S.shopping=true;SY.dirty=true}
+  const rk=sEnts(sh.checked).filter(e=>e[1]).map(e=>sd(e[0])).sort(),lk=Object.keys(S.shopChecked).filter(k=>S.shopChecked[k]).sort();
+  if(cj(rk)!==cj(lk)){
+    S.shopChecked=Object.fromEntries(rk.map(k=>[k,true]));
+    document.querySelectorAll("input[data-shop-check]").forEach(i=>{i.checked=!!S.shopChecked[i.dataset.shopCheck]});
+  }
+}
+/* live connection: the server pushes a message the moment anything changes, then we fetch it */
+function sStream(){
+  if(SY.es){SY.es.close();SY.es=null}
+  if(!SY.code||!FBON||!window.EventSource)return;
+  const es=new EventSource(FB_URL+"/h/"+SY.code+".json");
+  es.addEventListener("put",()=>sNow());
+  es.addEventListener("patch",()=>sNow());
+  SY.es=es;
 }
 function sUi(){
   const b=document.querySelector("[data-sync]");
@@ -455,17 +474,18 @@ function sConnect(){
   const v=prompt(U().syncAsk,SY.code);
   if(v===null)return;
   const c=v.trim().toLowerCase().replace(/[^a-z0-9_-]/g,"");
-  if(!c){if(SY.code&&confirm(U().syncOff)){SY.code="";SY.q=[];SY.seeded=false;saveSY();sUi()}return}
+  if(!c){if(SY.code&&confirm(U().syncOff)){SY.code="";SY.q=[];SY.seeded=false;saveSY();sUi();sStream()}return}
   if(c.length<6){alert(U().syncShort);return}
   if(c!==SY.code){SY.code=c;SY.q=[];SY.seeded=false;SY.tried=false;SY.state="wait";saveSY()}
-  sUi();sNow();
+  sUi();sStream();sNow();
 }
 render();
 if(FBON){
   if(!SY.code&&!SY.asked)setTimeout(()=>{SY.asked=true;saveSY();sConnect()},600);
   else sNow();
-  setInterval(()=>{if(!document.hidden){sNow();sUi()}},15000);
-  document.addEventListener("visibilitychange",()=>{if(!document.hidden)sNow()});
+  sStream();
+  setInterval(()=>{if(!document.hidden){if(!SY.es||SY.es.readyState!==1)sNow();sUi()}},30000);
+  document.addEventListener("visibilitychange",()=>{if(!document.hidden){if(!SY.es||SY.es.readyState===2)sStream();sNow()}});
   addEventListener("online",sNow);
 }
 </script>

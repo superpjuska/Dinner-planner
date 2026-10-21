@@ -304,8 +304,8 @@ function plan(){
   return h;
 }
 function form(){
-  const u=U();
-  return `<h2>${u.add}</h2><p class="sub">${u.addSub}</p><div class="form"><label>${u.fname}<input id="f-n" maxlength="60" autocomplete="off"></label><div class="row"><label>${u.femoji}<input id="f-e" maxlength="8" placeholder="🍲"></label><label>${u.ftime}<input id="f-t" type="number" min="1" max="600" inputmode="numeric"></label></div><label>${u.fing}<textarea id="f-i" rows="6"></textarea></label><label>${u.fsteps}<textarea id="f-s" rows="6"></textarea></label><p class="err" id="f-err" role="alert"></p><button class="ghost save" data-save>${u.save}</button></div>`;
+  const u=U(),x=S.editId&&ALL().some(d=>d.id===S.editId)?get(S.editId):null,qa=v=>String(v==null?"":v).replace(/"/g,"&quot;");
+  return `<h2>${x?u.editTitle:u.add}</h2>${x?"":`<p class="sub">${u.addSub}</p>`}<div class="form"><label>${u.fname}<input id="f-n" maxlength="60" autocomplete="off" value="${qa(x&&x.n)}"></label><div class="row"><label>${u.femoji}<input id="f-e" maxlength="8" placeholder="🍲" value="${qa(x&&x.e)}"></label><label>${u.ftime}<input id="f-t" type="number" min="1" max="600" inputmode="numeric" value="${qa(x&&x.t)}"></label></div><label>${u.fing}<textarea id="f-i" rows="6">${x?x.i.split("|").join("\n"):""}</textarea></label><label>${u.fsteps}<textarea id="f-s" rows="6">${x?x.s.split("|").join("\n"):""}</textarea></label><p class="err" id="f-err" role="alert"></p><button class="ghost save" data-save>${x?u.saveEdit:u.save}</button>${x?`<button class="ghost" data-cancel-edit>${u.cancel}</button>`:""}</div>`;
 }
 function add(){
   const v=id=>document.getElementById(id).value.trim();
@@ -313,12 +313,20 @@ function add(){
   const ls=(id,num)=>v(id).split("\n").map(x=>esc(x.replace(num?/^\s*(\d+[.)]|[-•*])\s*/:/^\s*[-•*]\s*/,"").trim())).filter(Boolean);
   const n=esc(v("f-n")),t=parseInt(v("f-t"),10),i=ls("f-i"),s=ls("f-s",1);
   if(!n||!(t>0)||!i.length||!s.length){document.getElementById("f-err").textContent=U().ferr;return false}
+  const f={e:esc(v("f-e"))||"🍽️",n,t,i:i.join("|"),s:s.join("|"),c:1},o=S.editId,ci=C.findIndex(d=>d.id===o);
+  if(o&&ci>=0){C[ci]={id:o,...f};S.added=o;S.editId=null;saveC();sPut("dinners/"+o,C[ci]);return true}
   const id=Date.now();
-  C.push({id,e:esc(v("f-e"))||"🍽️",n,t,i:i.join("|"),s:s.join("|"),c:1});
+  C.push({id,...f});
+  if(o){ /* edited a built-in dinner: keep it as your own copy, hide the original, keep the plan pointing at the copy */
+    if(!H.includes(o)){H.push(o);saveH();sPut("hidden/h"+o,true)}
+    for(const k in S.pick)if(S.pick[k]===o){S.pick[k]=id;sPut("pick/"+k,id)}
+    for(const k in S.sug)if(S.sug[k].includes(o)){S.sug[k]=S.sug[k].map(x=>x===o?id:x);sPut("sug/"+k,S.sug[k])}
+    save();S.editId=null;
+  }
   S.added=id;saveC();sPut("dinners/"+id,C[C.length-1]);return true;
 }
 function all(){
-  return A().map(T).sort((a,b)=>a.t-b.t).map(d=>`<details${d.id===S.added?" open":""}><summary><span style="font-size:26px">${d.e}</span>${d.n}<span class="tm">${d.t} ${U().min}</span></summary>${recipe(d)}<p style="padding:0 16px 14px;margin:0"><button class="ghost" data-del="${d.id}">${U().del}</button></p></details>`).join("")+(H.length?`<button class="ghost" data-restore style="margin-top:8px">${U().restore(H.length)}</button>`:"");
+  return A().map(T).sort((a,b)=>a.t-b.t).map(d=>`<details${d.id===S.added?" open":""}><summary><span style="font-size:26px">${d.e}</span>${d.n}<span class="tm">${d.t} ${U().min}</span></summary>${recipe(d)}<p style="padding:0 16px 14px;margin:0;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" data-edit="${d.id}">${U().edit}</button><button class="ghost" data-del="${d.id}">${U().del}</button></p></details>`).join("")+(H.length?`<button class="ghost" data-restore style="margin-top:8px">${U().restore(H.length)}</button>`:"");
 }
 document.addEventListener("change",e=>{
   const s=e.target;
@@ -338,10 +346,12 @@ function render(){DAYS=U().days;FULL=U().full;document.documentElement.lang=S.la
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
   const q=a=>b.hasAttribute("data-"+a);
-  if(q("tab"))S.tab=b.dataset.tab;
+  if(q("tab")){S.tab=b.dataset.tab;S.editId=null}
   else if(q("lang")){S.lang=b.dataset.lang;save();}
   else if(q("save")){if(!add())return;S.tab="all";}
   else if(q("restore")){H=[];saveH();S.sug={};sPut("hidden",null);sPut("sug",null);}
+  else if(q("edit")){S.editId=+b.dataset.edit;S.tab="add";setTimeout(()=>scrollTo(0,0),0)}
+  else if(q("cancel-edit")){S.editId=null;S.tab="all"}
   else if(q("del")){
     if(!b.dataset.armed){b.dataset.armed="1";b.textContent=U().sure;return}
     const id=+b.dataset.del;if(C.some(d=>d.id===id)){C=C.filter(d=>d.id!==id);saveC();sPut("dinners/"+id,null)}else{H.push(id);saveH();sPut("hidden/h"+id,true)}
@@ -394,6 +404,8 @@ Object.assign(UI.no,{syncAsk:"Familiekode - bruk samme kode på alle enheter (bo
 const SK=KEY+"-sync";
 Object.assign(UI.en,{delShop:"Delete shopping list",delShopAsk:"Delete the shopping list?",delShopAll:"It is removed for everyone on your family code."});
 Object.assign(UI.no,{delShop:"Slett handlelisten",delShopAsk:"Slette handlelisten?",delShopAll:"Den fjernes for alle med familiekoden din."});
+Object.assign(UI.en,{edit:"Edit dinner",editTitle:"Edit dinner",saveEdit:"Save changes",cancel:"Cancel"});
+Object.assign(UI.no,{edit:"Rediger middag",editTitle:"Rediger middag",saveEdit:"Lagre endringer",cancel:"Avbryt"});
 const SH=KEY+"-shop";
 const saveShop=()=>{try{if(S.shopping)localStorage.setItem(SH,JSON.stringify({from:S.shopFrom,to:S.shopTo,checked:S.shopChecked}));else localStorage.removeItem(SH)}catch(e){}};
 try{const x=JSON.parse(localStorage.getItem(SH)||"null");if(x&&x.from&&x.to){S.shopFrom=x.from;S.shopTo=x.to;S.shopChecked=x.checked||{};S.shopping=true;S.shopVisible=true}}catch(e){}

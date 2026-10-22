@@ -108,6 +108,7 @@ details .recipe{border:0;margin:0;padding:0 16px 16px;border-top:1px solid var(-
 .date-picker-grid button:hover,.date-picker-grid button.sel{background:var(--soft)}
 .date-picker-grid button.today{outline:1px solid var(--acc)}
 .lang button.sync{padding:5px 8px}.lang button.sync.off{opacity:.55}
+.shopping li.shop-edit{display:flex;gap:8px;margin:6px 0;list-style:none}.shopping li.shop-edit input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid rgba(128,128,128,.5);border-radius:8px;background:transparent;color:inherit}
 </style>
 </head>
 <body>
@@ -275,8 +276,11 @@ function shoppingList(){
   const meals=Object.entries(S.pick).filter(([day,id])=>day>=from&&day<=to&&all.some(d=>d.id===id)).map(([day,id])=>({day,d:all.find(x=>x.id===id)}));
   const locale=S.lang==="no"?"nb-NO":"en-GB";
   const range=`${parse(from).toLocaleDateString(locale,{day:"numeric",month:"short",year:"numeric"})} – ${parse(to).toLocaleDateString(locale,{day:"numeric",month:"short",year:"numeric"})}`;
-  const items=shoppingItems(meals);
-  return `<section class="shopping" id="shopping-list"${S.shopVisible?"":" hidden"}><h2>${U().shoppingFor(range)}</h2>${meals.length?`<ul>${items.map(item=>{const checkKey=encodeURIComponent(from+"|"+to+"|"+item);return `<li><label><input type="checkbox" data-shop-check="${checkKey}"${S.shopChecked[checkKey]?" checked":""}> ${item}</label></li>`}).join("")}</ul>`:`<p class="empty">${U().noShopping}</p>`}<p style="margin:18px 0 0"><button class="ghost" data-shop-delete>${U().delShop}</button></p></section>`;
+  const snap=S.shopItems!=null,ed=snap&&S.shopEdit,qa=v=>String(v).replace(/"/g,"&quot;");
+  const rows=snap?Object.entries(S.shopItems).sort((a,b)=>a[1].o-b[1].o).map(([k,x])=>({k,t:x.t})):shoppingItems(meals).map(t=>({k:encodeURIComponent(from+"|"+to+"|"+t),t}));
+  const li=r=>ed?`<li class="shop-edit"><input data-shop-item="${r.k}" value="${qa(r.t)}" aria-label="${U().shopItem}"><button class="ghost" data-shop-rm="${r.k}" aria-label="${U().shopRm}">✕</button></li>`:`<li><label><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}> ${r.t}</label></li>`;
+  const addRow=ed?`<li class="shop-edit"><input id="shop-new" placeholder="${U().shopNew}" autocomplete="off"><button class="ghost" data-shop-add>${U().shopAdd}</button></li>`:"";
+  return `<section class="shopping" id="shopping-list"${S.shopVisible?"":" hidden"}><h2>${U().shoppingFor(range)}</h2>${rows.length||ed?`<ul>${rows.map(li).join("")}${addRow}</ul>`:`<p class="empty">${U().noShopping}</p>`}<p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">${ed?`<button class="ghost" data-shop-done>${U().shopDone}</button>`:`<button class="ghost" data-shop-edit>${U().shopEdit}</button>`}<button class="ghost" data-shop-delete>${U().delShop}</button></p></section>`;
 }
 function cal(){
   const [y,m]=S.view.split("-").map(Number),today=key(new Date());
@@ -330,6 +334,15 @@ function all(){
 }
 document.addEventListener("change",e=>{
   const s=e.target;
+  if(s.matches&&s.matches("input[data-shop-item]")){
+    const k=s.dataset.shopItem,it=S.shopItems&&S.shopItems[k],t=shopEsc(s.value.trim());
+    if(it){
+      if(t){it.t=t;sPut("shop/items/"+k,it)}
+      else{delete S.shopItems[k];delete S.shopChecked[k];sPut("shop/items/"+k,null);sPut("shop/checked/"+sk(k),null);render()}
+      saveShop();
+    }
+    return;
+  }
   if(s.matches&&s.matches("input[data-shop-check]")){S.shopChecked[s.dataset.shopCheck]=s.checked;sPut("shop/checked/"+sk(s.dataset.shopCheck),s.checked?true:null);saveShop();return}
   if(!s.matches||!s.matches("select[data-other]")||!s.value)return;
   const id=+s.value,d=S.day;
@@ -384,14 +397,18 @@ document.addEventListener("click",e=>{
     S.shopDraftFrom=document.getElementById("shop-from").value;S.shopDraftTo=document.getElementById("shop-to").value;
     const from=parseDisplayDate(S.shopDraftFrom),to=parseDisplayDate(S.shopDraftTo);
     if(!from||!to||from>to){document.getElementById("shop-err").textContent=U().invalidRange;return}
-    S.shopFrom=from;S.shopTo=to;S.shopping=true;S.shopPicker=false;S.shopActive="";S.shopChecked={};S.shopVisible=true;saveShop();sPut("shop",{from,to});
+    S.shopFrom=from;S.shopTo=to;S.shopping=true;S.shopPicker=false;S.shopActive="";S.shopChecked={};S.shopVisible=true;S.shopEdit=false;S.shopItems=shopSnap(from,to);saveShop();sPut("shop",{from,to,snap:1,items:S.shopItems});
   }
   else if(q("mv")){const [y,m]=S.view.split("-").map(Number);S.view=key(new Date(y,m-1+ +b.dataset.mv,1)).slice(0,7)}
   else if(q("today")){S.day=key(new Date());S.view=S.day.slice(0,7)}
   else if(q("shuffle"))suggest(S.day);
   else if(q("pick")){S.pick[S.day]=+b.dataset.pick;save();sPut("pick/"+S.day,S.pick[S.day]);}
   else if(q("clear")){delete S.pick[S.day];save();sPut("pick/"+S.day,null);}
-  else if(q("shop-delete")){if(!confirm(U().delShopAsk+(SY.code?" "+U().delShopAll:"")))return;S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};saveShop();sPut("shop",null)}
+  else if(q("shop-edit")){if(S.shopItems==null){S.shopItems=shopSnap(S.shopFrom,S.shopTo);S.shopChecked={};sPut("shop",{from:S.shopFrom,to:S.shopTo,snap:1,items:S.shopItems})}S.shopEdit=true;saveShop()}
+  else if(q("shop-done"))S.shopEdit=false;
+  else if(q("shop-rm")){const k=b.dataset.shopRm;if(S.shopItems){delete S.shopItems[k];delete S.shopChecked[k];sPut("shop/items/"+k,null);sPut("shop/checked/"+sk(k),null);saveShop()}}
+  else if(q("shop-add")){if(!shopAddItem())return;setTimeout(()=>{const i=document.getElementById("shop-new");if(i)i.focus()},0)}
+  else if(q("shop-delete")){if(!confirm(U().delShopAsk+(SY.code?" "+U().delShopAll:"")))return;S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;saveShop();sPut("shop",null)}
   else if(q("sync")){sConnect();return}
   else return;
   render();
@@ -406,9 +423,29 @@ Object.assign(UI.en,{delShop:"Delete shopping list",delShopAsk:"Delete the shopp
 Object.assign(UI.no,{delShop:"Slett handlelisten",delShopAsk:"Slette handlelisten?",delShopAll:"Den fjernes for alle med familiekoden din."});
 Object.assign(UI.en,{edit:"Edit dinner",editTitle:"Edit dinner",saveEdit:"Save changes",cancel:"Cancel"});
 Object.assign(UI.no,{edit:"Rediger middag",editTitle:"Rediger middag",saveEdit:"Lagre endringer",cancel:"Avbryt"});
+Object.assign(UI.en,{shopEdit:"Edit list",shopDone:"Done",shopNew:"Add item...",shopAdd:"Add",shopRm:"Remove",shopItem:"Item"});
+Object.assign(UI.no,{shopEdit:"Rediger liste",shopDone:"Ferdig",shopNew:"Legg til vare...",shopAdd:"Legg til",shopRm:"Fjern",shopItem:"Vare"});
 const SH=KEY+"-shop";
-const saveShop=()=>{try{if(S.shopping)localStorage.setItem(SH,JSON.stringify({from:S.shopFrom,to:S.shopTo,checked:S.shopChecked}));else localStorage.removeItem(SH)}catch(e){}};
-try{const x=JSON.parse(localStorage.getItem(SH)||"null");if(x&&x.from&&x.to){S.shopFrom=x.from;S.shopTo=x.to;S.shopChecked=x.checked||{};S.shopping=true;S.shopVisible=true}}catch(e){}
+S.shopItems=null;S.shopEdit=false; /* shopItems: null = old style list built live from the plan, object = saved list you can edit */
+const shopEsc=x=>x.replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";");
+function shopSnap(from,to){
+  const all=A(),meals=Object.entries(S.pick).filter(([day,id])=>day>=from&&day<=to&&all.some(d=>d.id===id)).map(([day,id])=>({day,d:all.find(x=>x.id===id)}));
+  const o={},b=Date.now().toString(36);
+  shoppingItems(meals).forEach((t,i)=>{o["i"+b+i]={t,o:i}});
+  return o;
+}
+function shopAddItem(){
+  const el=document.getElementById("shop-new"),t=el?shopEsc(el.value.trim()):"";
+  if(!t||!S.shopItems)return false;
+  const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  S.shopItems[id]={t,o:Date.now()};sPut("shop/items/"+id,S.shopItems[id]);saveShop();
+  return true;
+}
+document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target.id==="shop-new"){e.preventDefault();if(shopAddItem()){render();setTimeout(()=>{const i=document.getElementById("shop-new");if(i)i.focus()},0)}}
+});
+const saveShop=()=>{try{if(S.shopping)localStorage.setItem(SH,JSON.stringify({from:S.shopFrom,to:S.shopTo,checked:S.shopChecked,items:S.shopItems}));else localStorage.removeItem(SH)}catch(e){}};
+try{const x=JSON.parse(localStorage.getItem(SH)||"null");if(x&&x.from&&x.to){S.shopFrom=x.from;S.shopTo=x.to;S.shopChecked=x.checked||{};S.shopItems=x.items||null;S.shopping=true;S.shopVisible=true}}catch(e){}
 let SY={code:"",q:[],seeded:false,asked:false,tried:false,busy:false,again:false,dirty:false,state:"wait"};
 try{const x=JSON.parse(localStorage.getItem(SK)||"null");if(x){SY.code=x.code||"";SY.q=Array.isArray(x.q)?x.q:[];SY.seeded=!!x.seeded;SY.asked=!!x.asked}}catch(e){}
 const saveSY=()=>{try{localStorage.setItem(SK,JSON.stringify({code:SY.code,q:SY.q,seeded:SY.seeded,asked:SY.asked}))}catch(e){}};
@@ -437,7 +474,7 @@ function sApply(d){
     H.forEach(id=>{if(!("h"+id in rh)){rh["h"+id]=true;up("hidden/h"+id,true)}});
     for(const k in S.pick)if(!(k in rp)){rp[k]=S.pick[k];up("pick/"+k,S.pick[k])}
     for(const k in S.sug)if(!(k in rs)){rs[k]=S.sug[k];up("sug/"+k,S.sug[k])}
-    if(S.shopping&&S.shopFrom&&!(d.shop&&d.shop.from)){d.shop={from:S.shopFrom,to:S.shopTo,checked:{}};up("shop",{from:S.shopFrom,to:S.shopTo});for(const k in S.shopChecked)if(S.shopChecked[k]){d.shop.checked[sk(k)]=true;up("shop/checked/"+sk(k),true)}}
+    if(S.shopping&&S.shopFrom&&!(d.shop&&d.shop.from)){const sv=S.shopItems!=null?{from:S.shopFrom,to:S.shopTo,snap:1,items:S.shopItems}:{from:S.shopFrom,to:S.shopTo};d.shop={...sv,checked:{}};up("shop",sv);for(const k in S.shopChecked)if(S.shopChecked[k]){d.shop.checked[sk(k)]=true;up("shop/checked/"+sk(k),true)}}
     SY.seeded=true;SY.again=true;saveSY();
   }
   const nc=Object.values(rd).filter(x=>x&&x.id).sort((a,b)=>a.id-b.id);
@@ -452,7 +489,9 @@ function sApply(d){
   const sh=d.shop||{};
   if(sh.from&&sh.to){
     if(S.shopFrom!==sh.from||S.shopTo!==sh.to||!S.shopping){if(!S.shopping)S.shopVisible=true;S.shopFrom=sh.from;S.shopTo=sh.to;S.shopping=true;SY.dirty=true;saveShop()}
-  }else if(S.shopping){S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};SY.dirty=true;saveShop()}
+    const ri=sh.snap?Object.fromEntries(sEnts(sh.items).filter(e=>e[1]&&typeof e[1].t==="string")):null;
+    if(cj(ri)!==cj(S.shopItems==null?null:S.shopItems)){S.shopItems=ri;if(ri==null)S.shopEdit=false;SY.dirty=true;saveShop()}
+  }else if(S.shopping){S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;SY.dirty=true;saveShop()}
   const rk=sEnts(sh.checked).filter(e=>e[1]).map(e=>sd(e[0])).sort(),lk=Object.keys(S.shopChecked).filter(k=>S.shopChecked[k]).sort();
   if(cj(rk)!==cj(lk)){
     S.shopChecked=Object.fromEntries(rk.map(k=>[k,true]));saveShop();

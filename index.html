@@ -108,7 +108,12 @@ details .recipe{border:0;margin:0;padding:0 16px 16px;border-top:1px solid var(-
 .date-picker-grid button:hover,.date-picker-grid button.sel{background:var(--soft)}
 .date-picker-grid button.today{outline:1px solid var(--acc)}
 .lang button.sync{padding:5px 8px}.lang button.sync.off{opacity:.55}
-.shopping li.shop-edit{display:flex;gap:8px;margin:6px 0;list-style:none}.shopping li.shop-edit input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid rgba(128,128,128,.5);border-radius:8px;background:transparent;color:inherit}
+.shopping li.shop-edit{display:flex;gap:8px;margin:6px 0;list-style:none}.shopping li.shop-edit{align-items:center}.shopping li.shop-edit input:not([type=checkbox]){flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid rgba(128,128,128,.5);border-radius:8px;background:transparent;color:inherit}
+.shop-ask{margin-top:18px;padding:12px 14px;border:1px solid var(--line);border-radius:12px}.shop-ask p{margin:0 0 10px}.arch li.done{text-decoration:line-through;opacity:.65}
+.combo-box{position:relative;flex:1;display:flex;gap:6px;min-width:0}.combo-list{position:absolute;left:0;right:0;top:100%;z-index:5;max-height:220px;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:10px;margin-top:4px;box-shadow:0 6px 20px rgba(0,0,0,.18)}.combo-list[hidden],.combo-list button[hidden]{display:none}.combo-list button{display:block;width:100%;text-align:left;background:none;border:0;padding:10px 12px;font:inherit;color:inherit}.combo-list button:hover{background:rgba(128,128,128,.15)}
+.item-add{display:flex;gap:8px;margin:12px 0}.item-add input{flex:1;min-width:0;font:inherit;padding:8px 10px;border:1px solid rgba(128,128,128,.5);border-radius:8px;background:transparent;color:inherit}
+ul.items{list-style:none;padding:0;margin:0}ul.items li{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line)}ul.items li[hidden]{display:none}ul.items li small{opacity:.6}
+dialog.qty{border:1px solid var(--line);border-radius:14px;padding:18px;background:var(--bg);color:var(--ink);width:min(340px,90vw);box-sizing:border-box}dialog.qty::backdrop{background:rgba(0,0,0,.4)}dialog.qty h3{margin:0 0 2px;font-size:15px;opacity:.7}dialog.qty .qn{margin:0 0 12px;font-size:20px;font-weight:700}dialog.qty input{width:100%;box-sizing:border-box;font:inherit;padding:10px 12px;border:1px solid rgba(128,128,128,.5);border-radius:8px;background:transparent;color:inherit}dialog.qty .qb{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}dialog.qty .qok{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 </style>
 </head>
 <body>
@@ -278,9 +283,9 @@ function shoppingList(){
   const range=`${parse(from).toLocaleDateString(locale,{day:"numeric",month:"short",year:"numeric"})} – ${parse(to).toLocaleDateString(locale,{day:"numeric",month:"short",year:"numeric"})}`;
   const snap=S.shopItems!=null,ed=snap&&S.shopEdit,qa=v=>String(v).replace(/"/g,"&quot;");
   const rows=snap?Object.entries(S.shopItems).sort((a,b)=>a[1].o-b[1].o).map(([k,x])=>({k,t:x.t})):shoppingItems(meals).map(t=>({k:encodeURIComponent(from+"|"+to+"|"+t),t}));
-  const li=r=>ed?`<li class="shop-edit"><input data-shop-item="${r.k}" value="${qa(r.t)}" aria-label="${U().shopItem}"><button class="ghost" data-shop-rm="${r.k}" aria-label="${U().shopRm}">✕</button></li>`:`<li><label><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}> ${r.t}</label></li>`;
-  const addRow=ed?`<li class="shop-edit"><input id="shop-new" placeholder="${U().shopNew}" autocomplete="off"><button class="ghost" data-shop-add>${U().shopAdd}</button></li>`:"";
-  return `<section class="shopping" id="shopping-list"${S.shopVisible?"":" hidden"}><h2>${U().shoppingFor(range)}</h2>${rows.length||ed?`<ul>${rows.map(li).join("")}${addRow}</ul>`:`<p class="empty">${U().noShopping}</p>`}<p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">${ed?`<button class="ghost" data-shop-done>${U().shopDone}</button>`:`<button class="ghost" data-shop-edit>${U().shopEdit}</button>`}<button class="ghost" data-shop-delete>${U().delShop}</button></p></section>`;
+  const li=r=>ed?`<li class="shop-edit"><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}><input data-shop-item="${r.k}" value="${qa(r.t)}" aria-label="${U().shopItem}"><button class="ghost" data-shop-rm="${r.k}" aria-label="${U().shopRm}">✕</button></li>`:`<li><label><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}> ${r.t}</label></li>`;
+  const addRow=ed?`<li class="shop-edit"><div class="combo-box"><input id="shop-new" placeholder="${U().shopNew}" autocomplete="off"><button type="button" class="ghost" data-combo aria-label="${U().itemsPick}">▾</button><div class="combo-list" id="shop-combo" hidden>${catalog().map(c=>`<button type="button" data-combo-pick="${qa(c.n)}">${c.n}</button>`).join("")}</div></div><button class="ghost" data-shop-add>${U().shopAdd}</button></li>`:"";
+  return `<section class="shopping" id="shopping-list"${S.shopVisible?"":" hidden"}><h2>${U().shoppingFor(range)}</h2>${rows.length||ed?`<ul>${rows.map(li).join("")}${addRow}</ul>`:`<p class="empty">${U().noShopping}</p>`}${S.shopAsk?`<div class="shop-ask"><p>${U().archAsk}${SY.code?" "+U().delShopAll:""}</p><p style="display:flex;gap:8px;flex-wrap:wrap;margin:0"><button class="ghost" data-shop-archive>${U().archSave}</button><button class="ghost" data-shop-discard>${U().archDiscard}</button><button class="ghost" data-shop-cancel-del>${U().cancel}</button></p></div>`:`<p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">${ed?`<button class="ghost" data-shop-done>${U().shopDone}</button>`:`<button class="ghost" data-shop-edit>${U().shopEdit}</button>`}<button class="ghost" data-shop-delete>${U().delShop}</button></p>`}</section>`;
 }
 function cal(){
   const [y,m]=S.view.split("-").map(Number),today=key(new Date());
@@ -354,7 +359,7 @@ document.addEventListener("input",e=>{
   else if(e.target.id==="shop-to")S.shopDraftTo=e.target.value;
 });
 function render(){DAYS=U().days;FULL=U().full;document.documentElement.lang=S.lang==="no"?"nb-NO":"en-GB";document.title=U().title;
-  document.getElementById("app").innerHTML=`<div class="bar"><h1>${U().title}</h1><div class="lang" role="group" aria-label="Language">${FBON?`<button class="sync${SY.code?"":" off"}" data-sync aria-label="${U().syncTip}">${sLabel()}</button>`:""}<button data-lang="en" class="${S.lang==="en"?"on":""}">EN</button><button data-lang="no" class="${S.lang==="no"?"on":""}">NO</button></div></div><div class="tabs"><button data-tab="plan" class="${S.tab==="plan"?"on":""}">${U().plan}</button><button data-tab="all" class="${S.tab==="all"?"on":""}">${U().all} (${A().length})</button><button data-tab="add" class="${S.tab==="add"?"on":""}">${U().add}</button></div>`+(S.tab==="plan"?plan():S.tab==="add"?form():all());
+  document.getElementById("app").innerHTML=`<div class="bar"><h1>${U().title}</h1><div class="lang" role="group" aria-label="Language">${FBON?`<button class="sync${SY.code?"":" off"}" data-sync aria-label="${U().syncTip}">${sLabel()}</button>`:""}<button data-lang="en" class="${S.lang==="en"?"on":""}">EN</button><button data-lang="no" class="${S.lang==="no"?"on":""}">NO</button></div></div><div class="tabs"><button data-tab="plan" class="${S.tab==="plan"?"on":""}">${U().plan}</button><button data-tab="all" class="${S.tab==="all"?"on":""}">${U().all} (${A().length})</button><button data-tab="add" class="${S.tab==="add"?"on":""}">${U().add}</button><button data-tab="items" class="${S.tab==="items"?"on":""}">${U().itemsTab} (${catalog().length})</button><button data-tab="archive" class="${S.tab==="archive"?"on":""}">${U().archTab}${Object.keys(S.archive).length?` (${Object.keys(S.archive).length})`:""}</button></div>`+(S.tab==="plan"?plan():S.tab==="add"?form():S.tab==="archive"?archiveTab():S.tab==="items"?itemsTab():all());
 }
 document.addEventListener("click",e=>{
   const b=e.target.closest("button");if(!b)return;
@@ -404,11 +409,25 @@ document.addEventListener("click",e=>{
   else if(q("shuffle"))suggest(S.day);
   else if(q("pick")){S.pick[S.day]=+b.dataset.pick;save();sPut("pick/"+S.day,S.pick[S.day]);}
   else if(q("clear")){delete S.pick[S.day];save();sPut("pick/"+S.day,null);}
-  else if(q("shop-edit")){if(S.shopItems==null){S.shopItems=shopSnap(S.shopFrom,S.shopTo);S.shopChecked={};sPut("shop",{from:S.shopFrom,to:S.shopTo,snap:1,items:S.shopItems})}S.shopEdit=true;saveShop()}
+  else if(q("combo")){const l=document.getElementById("shop-combo");if(l){const open=l.hidden;l.querySelectorAll("button").forEach(x=>x.hidden=false);l.hidden=!open}return}
+  else if(q("combo-pick")){const i=document.getElementById("shop-new"),l=document.getElementById("shop-combo");if(i)i.value="";if(l)l.hidden=true;askQty(b.dataset.comboPick);return}
+  else if(q("item-add"))itemTabAdd();
+  else if(q("item-del")){const k=b.dataset.itemDel;if(S.cat[k]){delete S.cat[k];saveCat();sPut("cat/"+k,null)}}
+  else if(q("shop-edit")){shopMigrate();S.shopEdit=true;saveShop()}
   else if(q("shop-done"))S.shopEdit=false;
   else if(q("shop-rm")){const k=b.dataset.shopRm;if(S.shopItems){delete S.shopItems[k];delete S.shopChecked[k];sPut("shop/items/"+k,null);sPut("shop/checked/"+sk(k),null);saveShop()}}
   else if(q("shop-add")){if(!shopAddItem())return;setTimeout(()=>{const i=document.getElementById("shop-new");if(i)i.focus()},0)}
-  else if(q("shop-delete")){if(!confirm(U().delShopAsk+(SY.code?" "+U().delShopAll:"")))return;S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;saveShop();sPut("shop",null)}
+  else if(q("shop-delete"))S.shopAsk=true;
+  else if(q("shop-cancel-del"))S.shopAsk=false;
+  else if(q("shop-discard"))shopRemove(false);
+  else if(q("shop-archive"))shopRemove(true);
+  else if(q("arch-use")){
+    const e=S.archive[b.dataset.archUse];if(!e)return;
+    if(S.shopping&&!confirm(U().archReplace))return;
+    S.shopFrom=e.from;S.shopTo=e.to;S.shopItems=JSON.parse(JSON.stringify(e.items||{}));S.shopChecked={};S.shopping=true;S.shopVisible=true;S.shopEdit=false;S.shopAsk=false;S.tab="plan";
+    saveShop();sPut("shop",{from:e.from,to:e.to,snap:1,items:S.shopItems});
+  }
+  else if(q("arch-del")){if(!confirm(U().archDelAsk))return;const id=b.dataset.archDel;delete S.archive[id];saveArchive();sPut("archive/"+id,null)}
   else if(q("sync")){sConnect();return}
   else return;
   render();
@@ -425,6 +444,12 @@ Object.assign(UI.en,{edit:"Edit dinner",editTitle:"Edit dinner",saveEdit:"Save c
 Object.assign(UI.no,{edit:"Rediger middag",editTitle:"Rediger middag",saveEdit:"Lagre endringer",cancel:"Avbryt"});
 Object.assign(UI.en,{shopEdit:"Edit list",shopDone:"Done",shopNew:"Add item...",shopAdd:"Add",shopRm:"Remove",shopItem:"Item"});
 Object.assign(UI.no,{shopEdit:"Rediger liste",shopDone:"Ferdig",shopNew:"Legg til vare...",shopAdd:"Legg til",shopRm:"Fjern",shopItem:"Vare"});
+Object.assign(UI.en,{archTab:"Archive",archSave:"Save to archive",archDiscard:"Discard",archAsk:"What should happen to this shopping list?",archEmpty:"No archived lists yet. When you delete a shopping list you can save it here.",archUse:"Use again",archDel:"Delete",archDelAsk:"Delete this archived list?",archReplace:"Replace the current shopping list?",archItems:"items",archSaved:"Saved"});
+Object.assign(UI.no,{archTab:"Arkiv",archSave:"Lagre i arkiv",archDiscard:"Forkast",archAsk:"Hva skal skje med denne handlelisten?",archEmpty:"Ingen arkiverte lister ennå. Når du sletter en handleliste kan du lagre den her.",archUse:"Bruk igjen",archDel:"Slett",archDelAsk:"Slette denne arkiverte listen?",archReplace:"Erstatte gjeldende handleliste?",archItems:"varer",archSaved:"Lagret"});
+const AK=KEY+"-archive";
+S.archive={};S.shopAsk=false;
+try{const x=JSON.parse(localStorage.getItem(AK)||"null");if(x&&typeof x==="object")S.archive=x}catch(e){}
+const saveArchive=()=>{try{localStorage.setItem(AK,JSON.stringify(S.archive))}catch(e){}};
 const SH=KEY+"-shop";
 S.shopItems=null;S.shopEdit=false; /* shopItems: null = old style list built live from the plan, object = saved list you can edit */
 const shopEsc=x=>x.replace(/[&<>"]/g,c=>"&#"+c.charCodeAt(0)+";");
@@ -434,14 +459,112 @@ function shopSnap(from,to){
   shoppingItems(meals).forEach((t,i)=>{o["i"+b+i]={t,o:i}});
   return o;
 }
-function shopAddItem(){
-  const el=document.getElementById("shop-new"),t=el?shopEsc(el.value.trim()):"";
+/* old style list (built live from the plan) -> saved list; ticks are carried over */
+function shopMigrate(){
+  if(S.shopItems!=null)return;
+  S.shopItems=shopSnap(S.shopFrom,S.shopTo);
+  const ck={};
+  for(const k in S.shopItems){const lk=encodeURIComponent(S.shopFrom+"|"+S.shopTo+"|"+S.shopItems[k].t);if(S.shopChecked[lk])ck[k]=true}
+  S.shopChecked=ck;
+  sPut("shop",{from:S.shopFrom,to:S.shopTo,snap:1,items:S.shopItems});
+  for(const k in ck)sPut("shop/checked/"+sk(k),true);
+}
+function shopRemove(save){
+  if(save){
+    shopMigrate();
+    const id="a"+Date.now().toString(36)+Math.random().toString(36).slice(2,4),e={from:S.shopFrom,to:S.shopTo,at:Date.now()},ck={};
+    if(Object.keys(S.shopItems).length)e.items=S.shopItems;
+    for(const k in S.shopChecked)if(S.shopChecked[k]&&k in S.shopItems)ck[k]=true;
+    if(Object.keys(ck).length)e.checked=ck;
+    S.archive[id]=e;saveArchive();sPut("archive/"+id,e);
+  }
+  S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;S.shopAsk=false;
+  saveShop();sPut("shop",null);
+}
+function archiveTab(){
+  const u=U(),loc=S.lang==="no"?"nb-NO":"en-GB",fd=k=>parse(k).toLocaleDateString(loc,{day:"numeric",month:"short",year:"numeric"});
+  const ids=Object.keys(S.archive).sort((a,b)=>(S.archive[b].at||0)-(S.archive[a].at||0));
+  if(!ids.length)return `<h2>${u.archTab}</h2><p class="empty">${u.archEmpty}</p>`;
+  return `<h2>${u.archTab}</h2>`+ids.map(id=>{
+    const e=S.archive[id],its=e.items||{},ck=e.checked||{},keys=Object.keys(its).sort((a,b)=>its[a].o-its[b].o);
+    return `<details><summary>${fd(e.from)} – ${fd(e.to)}<span class="tm">${keys.length} ${u.archItems}</span></summary><ul class="arch" style="margin:0;padding:0 16px 8px 34px">${keys.map(k=>`<li${ck[k]?' class="done"':""}>${ck[k]?"✓ ":""}${its[k].t}</li>`).join("")}</ul>${e.at?`<p class="sub" style="padding:0 16px;margin:0 0 8px">${u.archSaved} ${new Date(e.at).toLocaleDateString(loc)}</p>`:""}<p style="padding:0 16px 14px;margin:0;display:flex;gap:8px;flex-wrap:wrap"><button class="ghost" data-arch-use="${id}">${u.archUse}</button><button class="ghost" data-arch-del="${id}">${u.archDel}</button></p></details>`;
+  }).join("");
+}
+Object.assign(UI.en,{itemsTab:"Items",itemsSub:"Ingredients and items you can pick when adding to a shopping list. Ingredients from your dinners are included automatically.",itemsNew:"Search or add item...",itemsDinner:"from dinners",itemsPick:"Show items"});
+Object.assign(UI.no,{itemsTab:"Varer",itemsSub:"Ingredienser og varer du kan velge når du legger til på handlelisten. Ingredienser fra middagene dine er med automatisk.",itemsNew:"Søk eller legg til vare...",itemsDinner:"fra middager",itemsPick:"Vis varer"});
+Object.assign(UI.en,{qtyTitle:"How much?",qtyHint:"e.g. 2, 500 g, 1 pack"});
+Object.assign(UI.no,{qtyTitle:"Hvor mye?",qtyHint:"f.eks. 2, 500 g, 1 pakke"});
+const CK=KEY+"-cat";
+S.cat={};
+try{const x=JSON.parse(localStorage.getItem(CK)||"null");if(x&&typeof x==="object")S.cat=x}catch(e){}
+const saveCat=()=>{try{localStorage.setItem(CK,JSON.stringify(S.cat))}catch(e){}};
+/* "500 g potatoes" -> "Potatoes" */
+const UNITW=/^(?:g|grams?|kg|ml|dl|l|liters?|milliliters?|tbsp|tablespoons?|ss|tsp|teaspoons?|ts|cans?|boks|bokser|pack|packet|pose|pakke|cloves?|fedd|handful|neve|slices?|skiver)\b\.?\s*/i;
+function ingName(raw){
+  let r=String(raw).trim();
+  const m=r.match(/^(\d+\s+\d+\/\d+|\d+\/\d+|\d+(?:[.,]\d+)?|[½¼¾])\s*/);
+  if(m){r=r.slice(m[0].length).replace(UNITW,"").replace(/^(?:of|av)\s+/i,"")}
+  r=r.replace(/\s*\(\d+(?:[.,]\d+)?\s*(?:g|kg|ml|dl|l)\)\s*$/i,"").replace(/\s*,.*$/,"").trim(); /* "Cheese, grated" -> "Cheese" */
+  return r?r.charAt(0).toUpperCase()+r.slice(1):"";
+}
+/* everything we know: ingredients found in the dinners + items you added yourself */
+function catalog(){
+  const m=new Map();
+  for(const d of A())for(const r of T(d).i.split("|")){const n=ingName(r);if(n)m.set(n.toLowerCase(),{n,own:false})}
+  for(const k in S.cat)if(S.cat[k]&&S.cat[k].n)m.set(S.cat[k].n.toLowerCase(),{n:S.cat[k].n,own:true,k});
+  return [...m.values()].sort((a,b)=>a.n.localeCompare(b.n,S.lang==="no"?"nb":"en"));
+}
+function catAdd(raw){
+  const n=ingName(shopEsc(String(raw).trim().replace(/\s+/g," ")));
+  if(!n||catalog().some(c=>c.n.toLowerCase()===n.toLowerCase()))return false;
+  const k="c"+sk(encodeURIComponent(n.toLowerCase()));
+  S.cat[k]={n};saveCat();sPut("cat/"+k,S.cat[k]);
+  return true;
+}
+function itemTabAdd(){const el=document.getElementById("item-new");if(!el)return false;const ok=catAdd(el.value);el.value="";return ok}
+function itemsTab(){
+  const u=U(),qa=v=>String(v).replace(/"/g,"&quot;");
+  return `<h2>${u.itemsTab}</h2><p class="sub">${u.itemsSub}</p><div class="item-add"><input id="item-new" placeholder="${u.itemsNew}" autocomplete="off"><button class="ghost" data-item-add>${u.shopAdd}</button></div><ul class="items">${catalog().map(c=>`<li><span>${c.n}</span>${c.own?`<button class="ghost" data-item-del="${qa(c.k)}" aria-label="${u.shopRm}">✕</button>`:`<small>${u.itemsDinner}</small>`}</li>`).join("")}</ul>`;
+}
+function shopPush(t){ /* one more line on the shopping list; the same item twice gives two lines */
   if(!t||!S.shopItems)return false;
   const id="i"+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
   S.shopItems[id]={t,o:Date.now()};sPut("shop/items/"+id,S.shopItems[id]);saveShop();
   return true;
 }
+function shopAddItem(){
+  const el=document.getElementById("shop-new");if(!el)return false;
+  if(!shopPush(shopEsc(el.value.trim())))return false;
+  catAdd(el.value);return true;
+}
+/* tapped an item in the dropdown: a pop-up asks how much, then the item is added */
+function askQty(name){
+  const dlg=document.createElement("dialog");dlg.className="qty";
+  dlg.innerHTML=`<h3>${U().qtyTitle}</h3><p class="qn"></p><input autocomplete="off" enterkeyhint="done" placeholder="${U().qtyHint}"><div class="qb"><button type="button" class="ghost" data-qty="no">${U().cancel}</button><button type="button" class="ghost qok" data-qty="ok">${U().shopAdd}</button></div>`;
+  dlg.querySelector(".qn").textContent=name;
+  const inp=dlg.querySelector("input");
+  const finish=ok=>{
+    const qv=inp.value.trim();dlg.close();dlg.remove();
+    if(ok){const nm=/^[A-ZÆØÅ][a-zæøå]/.test(name)?name.charAt(0).toLowerCase()+name.slice(1):name;if(shopPush(shopEsc(qv?qv+" "+nm:name)))render()}
+  };
+  dlg.addEventListener("click",e=>{const b=e.target.closest("button[data-qty]");if(b)finish(b.dataset.qty==="ok")});
+  inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();finish(true)}});
+  dlg.addEventListener("close",()=>dlg.remove());
+  document.body.appendChild(dlg);dlg.showModal();inp.focus();
+}
+document.addEventListener("click",e=>{const l=document.getElementById("shop-combo");if(l&&!l.hidden&&!e.target.closest(".combo-box"))l.hidden=true});
+document.addEventListener("input",e=>{
+  const t=e.target;
+  if(t.id==="shop-new"){
+    const v=t.value.trim().toLowerCase(),l=document.getElementById("shop-combo");let n=0;
+    if(l){l.querySelectorAll("button").forEach(x=>{const ok=!v||x.textContent.toLowerCase().includes(v);x.hidden=!ok;if(ok)n++});l.hidden=!v||!n}
+  }else if(t.id==="item-new"){
+    const v=t.value.trim().toLowerCase();
+    document.querySelectorAll("ul.items li").forEach(li=>{li.hidden=!!v&&!li.querySelector("span").textContent.toLowerCase().includes(v)});
+  }
+});
 document.addEventListener("keydown",e=>{
+  if(e.key==="Enter"&&e.target.id==="item-new"){e.preventDefault();itemTabAdd();render();setTimeout(()=>{const i=document.getElementById("item-new");if(i)i.focus()},0);return}
   if(e.key==="Enter"&&e.target.id==="shop-new"){e.preventDefault();if(shopAddItem()){render();setTimeout(()=>{const i=document.getElementById("shop-new");if(i)i.focus()},0)}}
 });
 const saveShop=()=>{try{if(S.shopping)localStorage.setItem(SH,JSON.stringify({from:S.shopFrom,to:S.shopTo,checked:S.shopChecked,items:S.shopItems}));else localStorage.removeItem(SH)}catch(e){}};
@@ -468,6 +591,8 @@ async function sFlush(){
 }
 function sApply(d){
   const rd=Object.fromEntries(sEnts(d.dinners)),rh=Object.fromEntries(sEnts(d.hidden)),rp=Object.fromEntries(sEnts(d.pick)),rs=Object.fromEntries(sEnts(d.sug));
+  const ra=Object.fromEntries(sEnts(d.archive).filter(e=>e[1]&&typeof e[1].from==="string"));
+  const rc=Object.fromEntries(sEnts(d.cat).filter(e=>e[1]&&typeof e[1].n==="string"));
   if(!SY.seeded){ /* first time on this code: upload what this device already has, keep what is online */
     const up=(p,v)=>SY.q.push({p,v});
     C.forEach(x=>{if(!(x.id in rd)){rd[x.id]=x;up("dinners/"+x.id,x)}});
@@ -475,6 +600,8 @@ function sApply(d){
     for(const k in S.pick)if(!(k in rp)){rp[k]=S.pick[k];up("pick/"+k,S.pick[k])}
     for(const k in S.sug)if(!(k in rs)){rs[k]=S.sug[k];up("sug/"+k,S.sug[k])}
     if(S.shopping&&S.shopFrom&&!(d.shop&&d.shop.from)){const sv=S.shopItems!=null?{from:S.shopFrom,to:S.shopTo,snap:1,items:S.shopItems}:{from:S.shopFrom,to:S.shopTo};d.shop={...sv,checked:{}};up("shop",sv);for(const k in S.shopChecked)if(S.shopChecked[k]){d.shop.checked[sk(k)]=true;up("shop/checked/"+sk(k),true)}}
+    for(const k in S.archive)if(!(k in ra)){ra[k]=S.archive[k];up("archive/"+k,S.archive[k])}
+    for(const k in S.cat)if(!(k in rc)){rc[k]=S.cat[k];up("cat/"+k,S.cat[k])}
     SY.seeded=true;SY.again=true;saveSY();
   }
   const nc=Object.values(rd).filter(x=>x&&x.id).sort((a,b)=>a.id-b.id);
@@ -491,12 +618,14 @@ function sApply(d){
     if(S.shopFrom!==sh.from||S.shopTo!==sh.to||!S.shopping){if(!S.shopping)S.shopVisible=true;S.shopFrom=sh.from;S.shopTo=sh.to;S.shopping=true;SY.dirty=true;saveShop()}
     const ri=sh.snap?Object.fromEntries(sEnts(sh.items).filter(e=>e[1]&&typeof e[1].t==="string")):null;
     if(cj(ri)!==cj(S.shopItems==null?null:S.shopItems)){S.shopItems=ri;if(ri==null)S.shopEdit=false;SY.dirty=true;saveShop()}
-  }else if(S.shopping){S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;SY.dirty=true;saveShop()}
+  }else if(S.shopping){S.shopping=false;S.shopVisible=false;S.shopFrom="";S.shopTo="";S.shopChecked={};S.shopItems=null;S.shopEdit=false;S.shopAsk=false;SY.dirty=true;saveShop()}
   const rk=sEnts(sh.checked).filter(e=>e[1]).map(e=>sd(e[0])).sort(),lk=Object.keys(S.shopChecked).filter(k=>S.shopChecked[k]).sort();
   if(cj(rk)!==cj(lk)){
     S.shopChecked=Object.fromEntries(rk.map(k=>[k,true]));saveShop();
     document.querySelectorAll("input[data-shop-check]").forEach(i=>{i.checked=!!S.shopChecked[i.dataset.shopCheck]});
   }
+  if(cj(ra)!==cj(S.archive)){S.archive=ra;saveArchive();SY.dirty=true}
+  if(cj(rc)!==cj(S.cat)){S.cat=rc;saveCat();SY.dirty=true}
 }
 /* live connection: the server pushes a message the moment anything changes, then we fetch it */
 function sStream(){

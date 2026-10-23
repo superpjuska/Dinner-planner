@@ -284,7 +284,7 @@ function shoppingList(){
   const snap=S.shopItems!=null,ed=snap&&S.shopEdit,qa=v=>String(v).replace(/"/g,"&quot;");
   const rows=snap?Object.entries(S.shopItems).sort((a,b)=>a[1].o-b[1].o).map(([k,x])=>({k,t:x.t})):shoppingItems(meals).map(t=>({k:encodeURIComponent(from+"|"+to+"|"+t),t}));
   const li=r=>ed?`<li class="shop-edit"><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}><input data-shop-item="${r.k}" value="${qa(r.t)}" aria-label="${U().shopItem}"><button class="ghost" data-shop-rm="${r.k}" aria-label="${U().shopRm}">✕</button></li>`:`<li><label><input type="checkbox" data-shop-check="${r.k}"${S.shopChecked[r.k]?" checked":""}> ${r.t}</label></li>`;
-  const addRow=ed?`<li class="shop-edit"><div class="combo-box"><input id="shop-new" placeholder="${U().shopNew}" autocomplete="off"><button type="button" class="ghost" data-combo aria-label="${U().itemsPick}">▾</button><div class="combo-list" id="shop-combo" hidden>${catalog().map(c=>`<button type="button" data-combo-pick="${qa(c.n)}">${c.n}</button>`).join("")}${Object.entries(S.groups).map(([id,g])=>`<button type="button" data-combo-group="${qa(id)}">📦 ${g.name} (${(g.items||[]).length})</button>`).join("")}</div></div><button class="ghost" data-shop-add>${U().shopAdd}</button></li>`:"";
+  const addRow=ed?`<li class="shop-edit"><div class="combo-box"><input id="shop-new" placeholder="${U().shopNew}" autocomplete="off"><button type="button" class="ghost" data-combo aria-label="${U().itemsPick}">▾</button><div class="combo-list" id="shop-combo" hidden>${Object.entries(S.groups).map(([id,g])=>`<button type="button" data-combo-group="${qa(id)}">📦 ${g.name} (${(g.items||[]).length})</button>`).join("")}${catalog().map(c=>`<button type="button" data-combo-pick="${qa(c.n)}">${c.n}</button>`).join("")}</div></div><button class="ghost" data-shop-add>${U().shopAdd}</button></li>`:"";
   return `<section class="shopping" id="shopping-list"${S.shopVisible?"":" hidden"}><h2>${U().shoppingFor(range)}</h2>${rows.length||ed?`<ul>${rows.map(li).join("")}${addRow}</ul>`:`<p class="empty">${U().noShopping}</p>`}${S.shopAsk?`<div class="shop-ask"><p>${U().archAsk}${SY.code?" "+U().delShopAll:""}</p><p style="display:flex;gap:8px;flex-wrap:wrap;margin:0"><button class="ghost" data-shop-archive>${U().archSave}</button><button class="ghost" data-shop-discard>${U().archDiscard}</button><button class="ghost" data-shop-cancel-del>${U().cancel}</button></p></div>`:`<p style="margin:18px 0 0;display:flex;gap:8px;flex-wrap:wrap">${ed?`<button class="ghost" data-shop-done>${U().shopDone}</button>`:`<button class="ghost" data-shop-edit>${U().shopEdit}</button>`}<button class="ghost" data-shop-delete>${U().delShop}</button></p>`}</section>`;
 }
 function cal(){
@@ -412,12 +412,14 @@ document.addEventListener("click",e=>{
   else if(q("combo")){const l=document.getElementById("shop-combo");if(l){const open=l.hidden;l.querySelectorAll("button").forEach(x=>x.hidden=false);l.hidden=!open}return}
   else if(q("combo-pick")){const i=document.getElementById("shop-new"),l=document.getElementById("shop-combo");if(i)i.value="";if(l)l.hidden=true;askQty(b.dataset.comboPick);return}
   else if(q("combo-group")){const id=b.dataset.comboGroup,l=document.getElementById("shop-combo");if(l)l.hidden=true;askGroupQty(id);return}
+  else if(q("group-open")){const f=document.getElementById("group-form");if(f&&!f.open)f.showModal();setTimeout(()=>document.getElementById("group-name")?.focus(),0);return}
+  else if(q("group-cancel")){document.getElementById("group-form")?.close();return}
   else if(q("group-save")){
     const name=(document.getElementById("group-name")?.value||"").trim();
     const selected=[...document.querySelectorAll("[data-group-item]:checked")].map(x=>x.value);
     if(!name||!selected.length){const err=document.getElementById("group-err");if(err)err.textContent=U().groupErr;return}
     const id="g"+Date.now().toString(36);
-    S.groups[id]={name,items:[...new Set(selected)]};saveGroups();S.tab="items";
+    S.groups[id]={name,items:[...new Set(selected)]};saveGroups();document.getElementById("group-form")?.close();S.tab="items";
   }
   else if(q("group-del")){delete S.groups[b.dataset.groupDel];saveGroups()}
   else if(q("item-add"))itemTabAdd();
@@ -501,8 +503,8 @@ function archiveTab(){
 }
 Object.assign(UI.en,{itemsTab:"Items",itemsSub:"Ingredients and items you can pick when adding to a shopping list. Ingredients from your dinners are included automatically.",itemsNew:"Search or add item...",itemsDinner:"from dinners",itemsPick:"Show items"});
 Object.assign(UI.no,{itemsTab:"Varer",itemsSub:"Ingredienser og varer du kan velge når du legger til på handlelisten. Ingredienser fra middagene dine er med automatisk.",itemsNew:"Søk eller legg til vare...",itemsDinner:"fra middager",itemsPick:"Vis varer"});
-Object.assign(UI.en,{qtyTitle:"How much?",qtyHint:"e.g. 2, 500 g, 1 pack",groupHeading:"Item groups",groupSub:"Create a group such as Basic groceries, then select the items it contains.",groupName:"Group name",groupNamePh:"Basic groceries",groupChoose:"Choose items for this group",groupSave:"Create group",groupErr:"Enter a group name and select at least one item",groupQty:"Adjust quantities",groupQtyHint:"Quantity for each item (e.g. 2, 500 g)",groupAdd:"Add group to shopping list"});
-Object.assign(UI.no,{qtyTitle:"Hvor mye?",qtyHint:"f.eks. 2, 500 g, 1 pakke",groupHeading:"Varegrupper",groupSub:"Lag en gruppe, for eksempel Basisvarer, og velg varene den skal inneholde.",groupName:"Gruppenavn",groupNamePh:"Basisvarer",groupChoose:"Velg varer i gruppen",groupSave:"Opprett gruppe",groupErr:"Skriv inn et gruppenavn og velg minst én vare",groupQty:"Juster mengder",groupQtyHint:"Mengde for hver vare (f.eks. 2, 500 g)",groupAdd:"Legg gruppen til handlelisten"});
+Object.assign(UI.en,{qtyTitle:"How much?",qtyHint:"e.g. 2, 500 g, 1 pack",groupHeading:"Item groups",groupSub:"Create a group such as Basic groceries, then select the items it contains.",groupName:"Group name",groupNamePh:"Basic groceries",groupChoose:"Choose items for this group",groupSave:"Add group",groupErr:"Enter a group name and select at least one item",groupQty:"Adjust quantities",groupQtyHint:"Quantity for each item (e.g. 2, 500 g)",groupAdd:"Add group to shopping list"});
+Object.assign(UI.no,{qtyTitle:"Hvor mye?",qtyHint:"f.eks. 2, 500 g, 1 pakke",groupHeading:"Varegrupper",groupSub:"Lag en gruppe, for eksempel Basisvarer, og velg varene den skal inneholde.",groupName:"Gruppenavn",groupNamePh:"Basisvarer",groupChoose:"Velg varer i gruppen",groupSave:"Legg til gruppe",groupErr:"Skriv inn et gruppenavn og velg minst én vare",groupQty:"Juster mengder",groupQtyHint:"Mengde for hver vare (f.eks. 2, 500 g)",groupAdd:"Legg gruppen til handlelisten"});
 const CK=KEY+"-cat";
 S.cat={};
 try{const x=JSON.parse(localStorage.getItem(CK)||"null");if(x&&typeof x==="object")S.cat=x}catch(e){}
@@ -541,10 +543,10 @@ function itemsTab(){
   const groups=Object.entries(S.groups);
   return `<h2>${u.itemsTab}</h2><p class="sub">${u.itemsSub}</p>
   <div class="item-add"><input id="item-new" placeholder="${u.itemsNew}" autocomplete="off"><button class="ghost" data-item-add>${u.shopAdd}</button></div>
-  <h3>${u.groupHeading}</h3><p class="sub">${u.groupSub}</p>
-  <div class="form" style="margin-bottom:20px"><label>${u.groupName}<input id="group-name" maxlength="60" placeholder="${u.groupNamePh}"></label>
+  <button class="ghost save" data-group-open>${u.groupSave}</button>
+  <dialog class="qty group-dialog" id="group-form" style="width:min(520px,94vw);max-height:85vh;overflow:auto"><h3>${u.groupHeading}</h3><p class="sub">${u.groupSub}</p><div class="form" style="margin-top:12px"><label>${u.groupName}<input id="group-name" maxlength="60" placeholder="${u.groupNamePh}"></label>
   <div><strong>${u.groupChoose}</strong><ul class="items">${items.map(c=>`<li><label style="display:flex;align-items:center;gap:8px"><input type="checkbox" data-group-item value="${qa(c.n)}" style="width:auto">${c.n}</label></li>`).join("")}</ul></div>
-  <button class="ghost save" data-group-save>${u.groupSave}</button><p class="err" id="group-err" role="alert"></p></div>
+  <p class="err" id="group-err" role="alert"></p><div class="qb"><button type="button" class="ghost" data-group-cancel>${u.cancel}</button><button type="button" class="ghost qok" data-group-save>${u.groupSave}</button></div></div></dialog>
   ${groups.length?`<h3>${u.groupHeading}</h3><ul class="items">${groups.map(([id,g])=>`<li style="display:block"><div style="display:flex;justify-content:space-between;gap:8px"><strong>${g.name}</strong><button class="ghost" data-group-del="${qa(id)}">${u.shopRm}</button></div><small>${(g.items||[]).join(", ")}</small></li>`).join("")}</ul>`:""}
   <h3>${u.itemsTab}</h3><ul class="items">${items.map(c=>`<li><span>${c.n}</span>${c.own?`<button class="ghost" data-item-del="${qa(c.k)}" aria-label="${u.shopRm}">✕</button>`:`<small>${u.itemsDinner}</small>`}</li>`).join("")}</ul>`;
 }
